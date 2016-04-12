@@ -14,7 +14,7 @@
 #include "MPU6050.h"
 #include "HAL_MPU6050.h"
 #include <math.h>
-#define SAMPLERATE 500
+#define SAMPLERATE 20
 volatile int16_t callibration = 0;
 volatile bool flag_freq=0;
 int16_t mpu[6];
@@ -57,22 +57,52 @@ int main(void) {
 		nvic.NVIC_IRQChannelSubPriority = 0;
 		nvic.NVIC_IRQChannelCmd = ENABLE;
 		NVIC_Init(&nvic);
-		printf("While started\r\n");
+
+		GPIO_InitTypeDef gpio;
+		GPIO_StructInit(&gpio);
+			gpio.GPIO_Pin = GPIO_Pin_5;
+			gpio.GPIO_Mode = GPIO_Mode_Out_PP;
+			GPIO_Init(GPIOA, &gpio);
 float AccX;
 float AccY;
 float GyroX;
-float pAcc=0;
-int i=0;
+float GyroXprev=0;
+float GyroXbias=0;
+float GyroXsum=0;
+float pAcc=1;
+float pGyro;
+printf("Calibration stage 1...\r\n");
+while(pAcc>0.1||pAcc<-0.1){
+	MPU6050_GetRawAccelGyro(mpu);
+AccX=mpu[1]*2.0f/32678.0f;
+AccY=mpu[2]*2.0f/32678.0f;
+pAcc=atan(AccX/AccY)*180/3.14;
+}
+pGyro=0;
+printf("Calibration stage 2...\r\n");
+delay_ms(1000);
+for(int i=1;i<=10;i++){
+	MPU6050_GetRawAccelGyro(mpu);
+	GyroXsum+=mpu[3]*250.0f/32678.0f;
+	delay_ms(50);
+}
+GyroXbias=GyroXsum/10;
+GPIO_SetBits(GPIOA, GPIO_Pin_5);
+printf("While started\r\n");
 	while (1){
 		if (flag_freq==1){
-		forward(1);
+	//	forward(1);
+
 		MPU6050_GetRawAccelGyro(mpu);
 AccX=mpu[1]*2.0f/32678.0f;
 AccY=mpu[2]*2.0f/32678.0f;
-GyroX=mpu[3]*250.0f/32678.0f;
+GyroX=mpu[3]*250.0f/32678.0f-GyroXbias;
 pAcc=atan(AccX/AccY)*180/3.14; //in degres
+pGyro=pGyro+(GyroX+GyroXprev)/2000*SAMPLERATE;
+GyroXprev=GyroX;
 
-	printf("AccX:%.2f AccY:%.2f GyroX:%.2f PosAcc:%.2f\r\n",AccX,AccY,GyroX,pAcc);
+printf("%f\r\n",pAcc);
+printf("%f\r\n",pGyro);
 flag_freq=0;
 		}
 	}

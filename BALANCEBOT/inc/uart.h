@@ -1,15 +1,15 @@
 #define BUFFER_SIZE  10
-#define TX_PIN GPIO_Pin_9;
-#define RX_PIN GPIO_Pin_10;
+#define TX_PIN GPIO_Pin_2; //GPIO_Pin_9;
+#define RX_PIN GPIO_Pin_3;// GPIO_Pin_10;
 #define BAUDRATE 9600;
 
 volatile char received_char;
 volatile char buffer[BUFFER_SIZE];
 
 void send_char(char c) {
-	while (USART_GetFlagStatus(USART1, USART_FLAG_TXE) == RESET)
+	while (USART_GetFlagStatus(USART2, USART_FLAG_TXE) == RESET)//
 		;
-	USART_SendData(USART1, c);
+	USART_SendData(USART2, c);//
 }
 
 void send_string(const char* s) {
@@ -18,16 +18,16 @@ void send_string(const char* s) {
 }
 
 void receive_char(void) {
-	while (!USART_GetFlagStatus(USART1, USART_FLAG_RXNE))
+	while (!USART_GetFlagStatus(USART2, USART_FLAG_RXNE))//
 		;
-	received_char = USART_ReceiveData(USART1);
+	received_char = USART_ReceiveData(USART2);//
 
 }
 void receive_data(void) {
 	int k = 0;
 	while (k < BUFFER_SIZE
-			&& USART_GetFlagStatus(USART2, USART_FLAG_RXNE) == SET) {
-		*buffer = USART_ReceiveData(USART2);
+			&& USART_GetFlagStatus(USART2, USART_FLAG_RXNE) == SET) {//
+		*buffer = USART_ReceiveData(USART2);//
 		k++;
 	}
 }
@@ -47,8 +47,8 @@ int __io_putchar(int a) {
 
 void uart_init() {
 
-	RCC_APB2PeriphClockCmd(RCC_APB2Periph_AFIO, ENABLE);
-	RCC_APB2PeriphClockCmd(RCC_APB2Periph_USART1, ENABLE);
+	RCC_APB2PeriphClockCmd(RCC_APB2Periph_AFIO, ENABLE);//
+	RCC_APB1PeriphClockCmd(RCC_APB1Periph_USART2, ENABLE);//
 	RCC_APB2PeriphClockCmd(
 			RCC_APB2Periph_GPIOA | RCC_APB2Periph_GPIOB | RCC_APB2Periph_GPIOC
 					| RCC_APB2Periph_GPIOD, ENABLE);
@@ -68,7 +68,7 @@ void uart_init() {
 	//uart config
 	USART_StructInit(&uart);
 	uart.USART_BaudRate = BAUDRATE;
-	USART_Init(USART1, &uart);
-	USART_Cmd(USART1, ENABLE);
+	USART_Init(USART2, &uart);
+	USART_Cmd(USART2, ENABLE);
 }
 
