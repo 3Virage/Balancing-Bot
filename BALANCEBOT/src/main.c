@@ -22,6 +22,12 @@ int16_t mpu[6];
 // mpu[2] acc y
 //mpu [3] gyro x
 //mpu[]  gyro y
+
+float PID(float k, float i, float d,float e, float eprev,float integralprev){
+	float integral=integralprev + (e+eprev)/2000*SAMPLERATE;
+	float derevative=(e-eprev)/1000*SAMPLERATE;
+	return k*e+i*integral+d*derevative;
+}
 int main(void) {
 	RCC_APB2PeriphClockCmd(
 				RCC_APB2Periph_GPIOA | RCC_APB2Periph_GPIOB | RCC_APB2Periph_GPIOC
@@ -69,8 +75,11 @@ float GyroX;
 float GyroXprev=0;
 float GyroXbias=0;
 float GyroXsum=0;
-float pAcc=1;
+float pAcc=1;//something different than 0
 float pGyro;
+float pFil;
+float pFilprev=0;
+float PIDout;
 printf("Calibration stage 1...\r\n");
 while(pAcc>0.1||pAcc<-0.1){
 	MPU6050_GetRawAccelGyro(mpu);
@@ -87,6 +96,9 @@ for(int i=1;i<=10;i++){
 	delay_ms(50);
 }
 GyroXbias=GyroXsum/10;
+MPU6050_GetRawAccelGyro(mpu);
+pAcc=atan(AccX/AccY)*180/3.14;
+pFil=pAcc;
 GPIO_SetBits(GPIOA, GPIO_Pin_5);
 printf("While started\r\n");
 	while (1){
@@ -99,14 +111,23 @@ AccY=mpu[2]*2.0f/32678.0f;
 GyroX=mpu[3]*250.0f/32678.0f-GyroXbias;
 pAcc=atan(AccX/AccY)*180/3.14; //in degres
 pGyro=pGyro+(GyroX+GyroXprev)/2000*SAMPLERATE;
+pFil=0.98*(pFil+(GyroX+GyroXprev)/2000*SAMPLERATE)+0.02*pAcc;//complementray filter
 GyroXprev=GyroX;
-
-printf("%f\r\n",pAcc);
-printf("%f\r\n",pGyro);
+PIDout=PID(1,0,5,pFil,pFilprev,0);
+pFilprev=pFil;
+//printf("%f\r\n",pAcc);
+//printf("%f\r\n",pGyro);
+printf("%.2f %.2f \r\n",pFil,PIDout);
+if(PIDout>0)
+	forward(PIDout);
+else
+	backward(-1*PIDout);
 flag_freq=0;
 		}
 	}
 }
+
+
 
 void TIM2_IRQHandler() {
 	if (TIM_GetITStatus(TIM2, TIM_IT_Update) == SET) {

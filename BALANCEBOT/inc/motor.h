@@ -11,7 +11,7 @@
 #define RMOTOR_PIN3 GPIO_Pin_10
 #define RMOTOR_PIN4 GPIO_Pin_9
 #define MOTOR_GPIO GPIOC
-#define MOTORDELAY 40 //time in 0.1 ms beetwen turning on motor coils, 14 is minimum
+#define MOTORDELAY 30 //time in 0.1 ms beetwen turning on motor coils, 14 is minimum
 
 volatile uint8_t lkr = 0;
 volatile uint8_t rkr = 0;
