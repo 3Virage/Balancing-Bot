@@ -14,17 +14,19 @@
 #include "MPU6050.h"
 #include "HAL_MPU6050.h"
 #include <math.h>
-#define SAMPLERATE 20
-volatile int16_t callibration = 0;
+#define SAMPLERATE 100
+#define PIDMAX 5
+
 volatile bool flag_freq=0;
+float integral=0;
 int16_t mpu[6];
 // mpu[1] acc x
 // mpu[2] acc y
 //mpu [3] gyro x
-//mpu[]  gyro y
 
-float PID(float k, float i, float d,float e, float eprev,float integralprev){
-	float integral=integralprev + (e+eprev)/2000*SAMPLERATE;
+
+float PID(float k, float i, float d,float e, float eprev){
+	integral+= e*SAMPLERATE/1000;
 	float derevative=(e-eprev)/1000*SAMPLERATE;
 	return k*e+i*integral+d*derevative;
 }
@@ -69,59 +71,78 @@ int main(void) {
 			gpio.GPIO_Pin = GPIO_Pin_5;
 			gpio.GPIO_Mode = GPIO_Mode_Out_PP;
 			GPIO_Init(GPIOA, &gpio);
-float AccX;
-float AccY;
-float GyroX;
+float AccX=0;
+float AccY=0;
+
+float GyroX=0;
 float GyroXprev=0;
 float GyroXbias=0;
 float GyroXsum=0;
+
 float pAcc=1;//something different than 0
-float pGyro;
-float pFil;
-float pFilprev=0;
-float PIDout;
+float pFil=0;
+float pWheel=0;
+
+float PID1out=0;
+float PID2out=0;
+float error1=0;
+float error1prev=0;
+float error2=0;
+float error2prev=0;
 printf("Calibration stage 1...\r\n");
-while(pAcc>0.1||pAcc<-0.1){
+while(pAcc>0.02||pAcc<-0.02){
 	MPU6050_GetRawAccelGyro(mpu);
 AccX=mpu[1]*2.0f/32678.0f;
 AccY=mpu[2]*2.0f/32678.0f;
 pAcc=atan(AccX/AccY)*180/3.14;
 }
-pGyro=0;
+
 printf("Calibration stage 2...\r\n");
-delay_ms(1000);
+GPIO_SetBits(GPIOA, GPIO_Pin_5);
+delay_ms(500);
+GPIO_ResetBits(GPIOA, GPIO_Pin_5);
 for(int i=1;i<=10;i++){
 	MPU6050_GetRawAccelGyro(mpu);
 	GyroXsum+=mpu[3]*250.0f/32678.0f;
 	delay_ms(50);
 }
+GPIO_SetBits(GPIOA, GPIO_Pin_5);
 GyroXbias=GyroXsum/10;
 MPU6050_GetRawAccelGyro(mpu);
 pAcc=atan(AccX/AccY)*180/3.14;
 pFil=pAcc;
-GPIO_SetBits(GPIOA, GPIO_Pin_5);
 printf("While started\r\n");
 	while (1){
-		if (flag_freq==1){
-	//	forward(1);
-
-		MPU6050_GetRawAccelGyro(mpu);
+		if (flag_freq){
+MPU6050_GetRawAccelGyro(mpu);
 AccX=mpu[1]*2.0f/32678.0f;
 AccY=mpu[2]*2.0f/32678.0f;
 GyroX=mpu[3]*250.0f/32678.0f-GyroXbias;
 pAcc=atan(AccX/AccY)*180/3.14; //in degres
-pGyro=pGyro+(GyroX+GyroXprev)/2000*SAMPLERATE;
-pFil=0.98*(pFil+(GyroX+GyroXprev)/2000*SAMPLERATE)+0.02*pAcc;//complementray filter
+
+pFil=0.98*(pFil+((GyroX+GyroXprev)*SAMPLERATE/2000))+(0.02*pAcc);//complementray filter
 GyroXprev=GyroX;
-PIDout=PID(1,0,5,pFil,pFilprev,0);
-pFilprev=pFil;
+
+error1=pFil;
+PID1out=PID(1,0,0,error1,error1prev);
+error2=pWheel;
+PID2out=PID(0,0,0,error2,error2prev);
+error1prev=error1;
+error2prev=error2;
+
+
 //printf("%f\r\n",pAcc);
 //printf("%f\r\n",pGyro);
-printf("%.2f %.2f \r\n",pFil,PIDout);
-if(PIDout>0)
-	forward(PIDout);
+
+PID2out=PID1out; //fix here
+if(PID2out>PIDMAX)PID2out=PIDMAX;
+else if(PID2out<-PIDMAX)PID2out=-PIDMAX;
+printf("%.2f %.2f %.2f \r\n",pFil,pAcc,PID2out);
+pWheel+=PID2out;
+if(PID2out>0)
+	backward(PID2out);
 else
-	backward(-1*PIDout);
+	forward(-1*PID2out);
 flag_freq=0;
 		}
 	}
@@ -132,7 +153,6 @@ flag_freq=0;
 void TIM2_IRQHandler() {
 	if (TIM_GetITStatus(TIM2, TIM_IT_Update) == SET) {
 		TIM_ClearITPendingBit(TIM2, TIM_IT_Update);
-
 		flag_motor = 1;
 	}
 
