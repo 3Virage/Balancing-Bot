@@ -11,16 +11,16 @@
 #define RMOTOR_PIN3 GPIO_Pin_11
 #define RMOTOR_PIN4 GPIO_Pin_12
 #define MOTOR_GPIO GPIOC
-#define MOTORDELAY 30 //time in 0.1 ms beetwen turning on motor coils, 14 is minimum
+#define MOTORDELAY 35 //time in 0.1 ms beetwen turning on motor coils, 14 is minimum
 
 volatile uint8_t lkr = 0;
 volatile uint8_t rkr = 0;
 volatile uint8_t kr=0;
 volatile bool flag_motor = 0;
+volatile bool flag_freq=0;
 
 
-
-void l_forward(int steps) {
+void l_forward(int steps ) {
 
 	while (steps) {
 		while (!flag_motor)
@@ -77,9 +77,9 @@ void l_backward(int steps) {
 	}
 }
 
-void r_forward(int steps) {
+void r_forward(int steps ) {
 
-	while (steps) {
+	while (steps ) {
 		while (!flag_motor)
 			;
 		flag_motor = 0;
@@ -134,9 +134,9 @@ void r_backward(int steps) {
 	}
 }
 
-void forward(int steps) {
+void forward(int steps ) {
 
-	while (steps) {
+	while (steps&&!flag_freq) {
 		while (!flag_motor)
 			;
 		flag_motor = 0;
@@ -167,7 +167,7 @@ void forward(int steps) {
 
 void backward(int steps) {
 
-	while (steps) {
+	while (steps&&!flag_freq) {
 		while (!flag_motor)
 			;
 		flag_motor = 0;
